@@ -17,7 +17,7 @@ __all__ = [
 ]
 
 # Base class for all getmail exceptions
-class getmailError(StandardError):
+class getmailError(Exception):
     '''Base class for all getmail exceptions.'''
     pass
 
@@ -31,7 +31,7 @@ class getmailOperationError(getmailError):
     pass
 
 class getmailRetrievalError(getmailOperationError):
-    '''Exception raised when a server (cough MSExchange cough) fails to 
+    '''Exception raised when a server (cough MSExchange cough) fails to
     hand over a message it claims to have.'''
     pass
 
@@ -58,7 +58,7 @@ class getmailDnsLookupError(getmailDnsError):
 class getmailDnsServerFailure(getmailDnsError):
     '''DNS server failed when trying to look up name.'''
     pass
-    
+
 class getmailCredentialError(getmailOperationError):
     '''Error raised when server says "bad password", "no such user", etc
     (when that is possible to detect).'''

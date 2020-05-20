@@ -43,13 +43,13 @@ import fcntl
 import pwd
 import grp
 import getpass
-import commands
+import subprocess
 import sys
 import tempfile
 import errno
 try:
     import subprocess
-except ImportError, o:
+except ImportError as o:
     subprocess = None
 
 # hashlib only present in python2.5, ssl in python2.6; used together
@@ -107,7 +107,7 @@ def unlock_file(file, locktype):
         fcntl.flock(file, fcntl.LOCK_UN)
 
 #######################################
-def safe_open(path, mode, permissions=0600):
+def safe_open(path, mode, permissions=0o600):
     '''Open a file path safely.
     '''
     if os.name != 'posix':
@@ -115,7 +115,7 @@ def safe_open(path, mode, permissions=0600):
     try:
         fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_EXCL, permissions)
         file = os.fdopen(fd, mode)
-    except OSError, o:
+    except OSError as o:
         raise getmailDeliveryError('failure opening %s (%s)' % (path, o))
     return file
 
@@ -140,8 +140,9 @@ class updatefile(object):
             filename = os.path.join(os.path.dirname(filename),
                                     os.readlink(filename))
         try:
-            f = safe_open(self.tmpname, 'wb')
-        except IOError, (code, msg):
+            f = safe_open(self.tmpname, 'w')
+        except IOError as xxx_todo_changeme:
+            (code, msg) = xxx_todo_changeme.args
             raise IOError('%s, opening output file "%s"' % (msg, self.tmpname))
         self.file = f
         self.write = f.write
@@ -176,7 +177,8 @@ class logfile(object):
         self.filename = filename
         try:
             self.file = open(expand_user_vars(self.filename), 'ab')
-        except IOError, (code, msg):
+        except IOError as xxx_todo_changeme1:
+            (code, msg) = xxx_todo_changeme1.args
             raise IOError('%s, opening file "%s"' % (msg, self.filename))
 
     def __del__(self):
@@ -208,7 +210,7 @@ def format_params(d, maskitems=('password', ), skipitems=()):
     '''Take a dictionary of parameters and return a string summary.
     '''
     s = ''
-    keys = d.keys()
+    keys = list(d.keys())
     keys.sort()
     for key in keys:
         if key in skipitems:
@@ -258,7 +260,7 @@ def is_maildir(d):
     return True
 
 #######################################
-def deliver_maildir(maildirpath, data, hostname, dcount=None, filemode=0600):
+def deliver_maildir(maildirpath, data, hostname, dcount=None, filemode=0o600):
     '''Reliably deliver a mail message into a Maildir.  Uses Dan Bernstein's
     documented rules for maildir delivery, and the updated naming convention
     for new files (modern delivery identifiers).  See
@@ -293,7 +295,7 @@ def deliver_maildir(maildirpath, data, hostname, dcount=None, filemode=0600):
                 ['%02x' % ord(char)
                  for char in open('/dev/urandom', 'rb').read(8)]
             )
-        except StandardError:
+        except Exception:
             pass
 
         filename = '%(secs)s.%(unique)s.%(hostname)s' % info
@@ -327,13 +329,13 @@ def deliver_maildir(maildirpath, data, hostname, dcount=None, filemode=0600):
 
     # Open file to write
     try:
-        f = safe_open(fname_tmp, 'wb', filemode)
+        f = safe_open(fname_tmp, 'w', filemode)
         f.write(data)
         f.flush()
         os.fsync(f.fileno())
         f.close()
 
-    except IOError, o:
+    except IOError as o:
         signal.alarm(0)
         raise getmailDeliveryError('failure writing file %s (%s)'
                                    % (fname_tmp, o))
@@ -349,7 +351,7 @@ def deliver_maildir(maildirpath, data, hostname, dcount=None, filemode=0600):
             os.unlink(fname_tmp)
         except KeyboardInterrupt:
             raise
-        except StandardError:
+        except Exception:
             pass
         raise getmailDeliveryError('failure renaming "%s" to "%s"'
                                    % (fname_tmp, fname_new))
@@ -391,14 +393,14 @@ def eval_bool(s):
 def gid_of_uid(uid):
     try:
         return pwd.getpwuid(uid).pw_gid
-    except KeyError, o:
+    except KeyError as o:
         raise getmailConfigurationError('no such specified uid (%s)' % o)
 
 #######################################
 def uid_of_user(user):
     try:
         return pwd.getpwnam(user).pw_uid
-    except KeyError, o:
+    except KeyError as o:
         raise getmailConfigurationError('no such specified user (%s)' % o)
 
 #######################################
@@ -414,7 +416,7 @@ def change_usergroup(logger=None, user=None, _group=None):
             logger.debug('Getting GID for specified group %s\n' % _group)
         try:
             gid = grp.getgrnam(_group).gr_gid
-        except KeyError, o:
+        except KeyError as o:
             raise getmailConfigurationError('no such specified group (%s)' % o)
     if user:
         if logger:
@@ -440,7 +442,7 @@ def change_uidgid(logger=None, uid=None, gid=None):
                 if logger:
                     logger.debug('Setting euid to %d\n' % uid)
                 os.setreuid(uid, uid)
-    except OSError, o:
+    except OSError as o:
         raise getmailDeliveryError('change UID/GID to %s/%s failed (%s)'
                                    % (uid, gid, o))
 
@@ -455,17 +457,17 @@ def decode_crappy_text(s):
         try:
             (lang, encoding) = lang.split('.')
             return s.decode(encoding)
-        except (UnicodeError, ValueError), o:
+        except (UnicodeError, ValueError) as o:
             pass
     # that failed; try well-formed in various common encodings next
     for encoding in ('ascii', 'utf-8', 'latin-1', 'utf-16'):
         try:
             return s.decode(encoding)
-        except UnicodeError, o:
+        except UnicodeError as o:
             continue
     # all failed - force it
     return s.decode('utf-8', 'replace')
-    
+
 
 #######################################
 def format_header(name, line):
@@ -583,7 +585,7 @@ def check_ssl_version(conf):
 #######################################
 def check_ssl_fingerprints(conf):
     ssl_fingerprints = conf['ssl_fingerprints']
-    if ssl_fingerprints is ():
+    if ssl_fingerprints == ():
         return ()
     if ssl is None or hashlib is None:
         raise getmailConfigurationError(
@@ -622,10 +624,10 @@ if os.name == 'posix':
     if os.path.isfile(osx_keychain_binary):
         def keychain_password(user, server, protocol, logger):
             """Mac OSX: return a keychain password, if it exists.  Otherwise, return
-         
+
          None.
             """
-            # OSX protocol is not an arbitrary string; it's a code limited to 
+            # OSX protocol is not an arbitrary string; it's a code limited to
             # 4 case-sensitive chars, and only specific values.
             protocol = protocol.lower()
             if 'imap' in protocol:
@@ -635,14 +637,14 @@ if os.name == 'posix':
             else:
                 # This will break.
                 protocol = '????'
-            
+
             # wish we could pass along a comment to this thing for the user prompt
             cmd = "%s find-internet-password -g -a '%s' -s '%s' -r '%s'" % (
                 osx_keychain_binary, user, server, protocol
             )
-            (status, output) = commands.getstatusoutput(cmd)
+            (status, output) = subprocess.getstatusoutput(cmd)
             if status != os.EX_OK or not output:
-                logger.error('keychain command %s failed: %s %s' 
+                logger.error('keychain command %s failed: %s %s'
                              % (cmd, status, output))
                 return None
             password = None
@@ -674,7 +676,7 @@ if os.name == 'posix':
                     # authtype=None, port=0
                     user, None, server, None, protocol, None, 0
                 )
-                
+
                 #logger.trace('got keyring result %s' % str(secret))
             except gnomekeyring.NoMatchError:
                 logger.debug('gnome-keyring does not know password for %s %s %s'
@@ -682,7 +684,7 @@ if os.name == 'posix':
                 return None
 
             # secret looks like this:
-            # [{'protocol': 'imap', 'keyring': 'Default', 'server': 'gmail.com', 
+            # [{'protocol': 'imap', 'keyring': 'Default', 'server': 'gmail.com',
             #   'user': 'hiciu', 'item_id': 1L, 'password': 'kielbasa'}]
             if secret and 'password' in secret[0]:
                 return secret[0]['password']
@@ -693,7 +695,7 @@ if os.name == 'posix':
         # Fallthrough
 if keychain_password is None:
     def keychain_password(user, server, protocol, logger):
-        """Neither Mac OSX keychain or Gnome keyring available: always return 
+        """Neither Mac OSX keychain or Gnome keyring available: always return
         None.
         """
         return None
@@ -713,22 +715,22 @@ def get_password(label, user, server, protocol, logger):
 
 #######################################
 def run_command(command, args):
-    # Simple subprocess wrapper for running a command and fetching its exit 
+    # Simple subprocess wrapper for running a command and fetching its exit
     # status and output/stderr.
     if args is None:
         args = []
-    if type(args) == tuple:
+    if isinstance(args, tuple):
         args = list(args)
 
     # Programmer sanity checks
-    assert type(command) in (str, unicode), (
+    assert isinstance(command, str), (
         'command is %s (%s)' % (command, type(command))
     )
-    assert type(args) == list, (
+    assert isinstance(args, list), (
         'args is %s (%s)' % (args, type(args))
     )
     for arg in args:
-        assert type(arg) in (str, unicode), 'arg is %s (%s)' % (arg, type(arg))
+        assert isinstance(arg, str), 'arg is %s (%s)' % (arg, type(arg))
 
     stdout = tempfile.TemporaryFile()
     stderr = tempfile.TemporaryFile()
@@ -737,7 +739,7 @@ def run_command(command, args):
 
     try:
         p = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
-    except OSError, o:
+    except OSError as o:
         if o.errno == errno.ENOENT:
             # no such file, command not found
             raise getmailConfigurationError('Program "%s" not found' % command)

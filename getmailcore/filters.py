@@ -63,7 +63,7 @@ class FilterSkeleton(ConfigurableBase):
         ConfigurableBase.__init__(self, **args)
         try:
             self.initialize()
-        except KeyError, o:
+        except KeyError as o:
             raise getmailConfigurationError(
                 'missing required configuration parameter %s' % o
             )
@@ -187,7 +187,7 @@ class Filter_external(FilterSkeleton, ForkingBase):
             raise getmailConfigurationError(
                 '%s not executable' % self.conf['path']
             )
-        if type(self.conf['arguments']) != tuple:
+        if not isinstance(self.conf['arguments'], tuple):
             raise getmailConfigurationError(
                 'incorrect arguments format; see documentation (%s)'
                 % self.conf['arguments']
@@ -203,7 +203,7 @@ class Filter_external(FilterSkeleton, ForkingBase):
                 frozenset(self.exitcodes_drop)
             ):
                 raise getmailConfigurationError('exitcode sets intersect')
-        except ValueError, o:
+        except ValueError as o:
             raise getmailConfigurationError('invalid exit code specified (%s)'
                                             % o)
 
@@ -235,14 +235,14 @@ class Filter_external(FilterSkeleton, ForkingBase):
             args = [self.conf['path'], self.conf['path']]
             for arg in self.conf['arguments']:
                 arg = expand_user_vars(arg)
-                for (key, value) in msginfo.items():
+                for (key, value) in list(msginfo.items()):
                     arg = arg.replace('%%(%s)' % key, value)
                 args.append(arg)
             # Can't log this; if --trace is on, it will be written to the
             # message passed to the filter.
             #self.log.debug('about to execl() with args %s\n' % str(args))
             os.execl(*args)
-        except StandardError, o:
+        except Exception as o:
             # Child process; any error must cause us to exit nonzero for parent
             # to detect it
             self.log.critical('exec of filter %s failed (%s)'
@@ -439,7 +439,7 @@ class Filter_TMDA(FilterSkeleton, ForkingBase):
                            ',EXT="%(EXT)s"' % os.environ)
             self.log.debug('about to execl() with args %s\n' % str(args))
             os.execl(*args)
-        except StandardError, o:
+        except Exception as o:
             # Child process; any error must cause us to exit nonzero for parent
             # to detect it
             self.log.critical('exec of filter %s failed (%s)'

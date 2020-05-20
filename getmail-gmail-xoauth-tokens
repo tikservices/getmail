@@ -24,7 +24,7 @@
 
 import os
 import sys
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import json
 import argparse
 import time
@@ -46,8 +46,8 @@ class OAuth2(object):
 
     def query(self, params):
         lst = []
-        for param in sorted(params.iteritems(), key=lambda x: x[0]):
-            escaped = urllib.quote(param[1], safe='~-._')
+        for param in sorted(iter(params.items()), key=lambda x: x[0]):
+            escaped = urllib.parse.quote(param[1], safe='~-._')
             lst.append('%s=%s' % (param[0], escaped))
         return '&'.join(lst)
 
@@ -57,8 +57,8 @@ class OAuth2(object):
         return '%s?%s' % (self.data['auth_uri'], self.query(params))
 
     def get_response(self, url, params):
-        encoded = urllib.urlencode(params)
-        response = urllib.urlopen(url, encoded).read()
+        encoded = urllib.parse.urlencode(params)
+        response = urllib.request.urlopen(url, encoded).read()
         return json.loads(response)
 
     def update_config(self, d):
@@ -106,10 +106,10 @@ if __name__ == '__main__':
     auth = OAuth2(args.tokenfile)
 
     if args.init:
-        print "Visit this url to obtain a verification code:"
-        print "    %s\n" % auth.code_url()
+        print("Visit this url to obtain a verification code:")
+        print("    %s\n" % auth.code_url())
 
-        code = raw_input("Enter verification code: ")
+        code = input("Enter verification code: ")
         response = auth.init_tokens(code)
     else:
         sys.stdout.write("%s" % auth.token())

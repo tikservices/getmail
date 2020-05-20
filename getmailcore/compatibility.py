@@ -10,7 +10,6 @@ __all__ = [
 
 import sys
 import imaplib
-import new
 
 
 if sys.version_info < (2, 4, 0):

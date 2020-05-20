@@ -57,7 +57,7 @@ class ConfItem:
                 )
             # Use default.
             return self.default
-        if type(val) is not self.dtype and val != self.default:
+        if not isinstance(val, self.dtype) and val != self.default:
             # Got value, but not of expected type.  Try to convert.
             if self.securevalue:
                 self.log.debug('converting %s to type %s\n'
@@ -71,7 +71,7 @@ class ConfItem:
                     val = eval_bool(val)
                 else:
                     val = self.dtype(eval(val))
-            except (ValueError, SyntaxError, TypeError), o:
+            except (ValueError, SyntaxError, TypeError) as o:
                 raise getmailConfigurationError(
                     '%s: configuration value (%s) not of required type %s (%s)'
                     % (self.name, val, self.dtype, o)
@@ -80,7 +80,7 @@ class ConfItem:
 
 class ConfInstance(ConfItem):
     def __init__(self, name, default=None, required=True):
-        ConfItem.__init__(self, name, types.InstanceType, default=default,
+        ConfItem.__init__(self, name, object, default=default,
                           required=required)
 
 class ConfString(ConfItem):
@@ -105,10 +105,10 @@ class ConfTupleOfStrings(ConfString):
             if not val:
                 val = '()'
             tup = eval(val)
-            if type(tup) != tuple:
+            if not isinstance(tup, tuple):
                 raise ValueError('not a tuple')
             val = tup
-        except (ValueError, SyntaxError), o:
+        except (ValueError, SyntaxError) as o:
             raise getmailConfigurationError(
                 '%s: incorrect format (%s)' % (self.name, o)
             )
@@ -130,20 +130,20 @@ class ConfTupleOfUnicode(ConfString):
             if tup in self.specials:
                 val = [tup]
             else:
-                if type(tup) != tuple:
+                if not isinstance(tup, tuple):
                     raise ValueError('not a tuple')
                 vals = []
                 for item in tup:
                     item = str(item)
                     try:
-                        vals.append(item.decode('ascii'))
-                    except UnicodeError, o:
+                        vals.append(item)
+                    except UnicodeError as o:
                         try:
                             vals.append(item.decode('utf-8'))
-                        except UnicodeError, o:
+                        except UnicodeError as o:
                             raise ValueError('not ascii or utf-8: %s' % item)
                 val = vals
-        except (ValueError, SyntaxError), o:
+        except (ValueError, SyntaxError) as o:
             raise getmailConfigurationError(
                 '%s: incorrect format (%s)' % (self.name, o)
             )
@@ -159,20 +159,20 @@ class ConfTupleOfTupleOfStrings(ConfString):
             if not val:
                 val = '()'
             tup = eval(val)
-            if type(tup) != tuple:
+            if not isinstance(tup, tuple):
                 raise ValueError('not a tuple')
             val = tup
-        except (ValueError, SyntaxError), o:
+        except (ValueError, SyntaxError) as o:
             raise getmailConfigurationError(
                 '%s: incorrect format (%s)' % (self.name, o)
             )
         for tup in val:
-            if type(tup) != tuple:
+            if not isinstance(tup, tuple):
                 raise ValueError('contained value "%s" not a tuple' % tup)
             if len(tup) != 2:
                 raise ValueError('contained value "%s" not length 2' % tup)
             for part in tup:
-                if type(part) != str:
+                if not isinstance(part, str):
                     raise ValueError('contained value "%s" has non-string part '
                                      '"%s"' % (tup, part))
 
@@ -255,7 +255,7 @@ class ConfMboxPath(ConfString):
         # Reset atime and mtime
         try:
             os.utime(val, (status_old.st_atime, status_old.st_mtime))
-        except OSError, o:
+        except OSError as o:
             # Not root or owner; readers will not be able to reliably
             # detect new mail.  But you shouldn't be delivering to
             # other peoples' mboxes unless you're root, anyways.
@@ -285,7 +285,7 @@ class ConfigurableBase(object):
         self.log.trace()
         self.conf = {}
         allowed_params = set([item.name for item in self._confitems])
-        for (name, value) in args.items():
+        for (name, value) in list(args.items()):
             if not name in allowed_params:
                 self.log.warning('Warning: ignoring unknown parameter "%s" '
                                  '(value: %s)\n' % (name, value))
@@ -307,7 +307,7 @@ class ConfigurableBase(object):
             # New class-based configuration item
             self.log.trace('checking %s\n' % item.name)
             self.conf[item.name] = item.validate(self.conf)
-        unknown_params = frozenset(self.conf.keys()).difference(
+        unknown_params = frozenset(list(self.conf.keys())).difference(
             frozenset([item.name for item in self._confitems])
         )
         for param in sorted(list(unknown_params), key=str.lower):
@@ -319,7 +319,7 @@ class ConfigurableBase(object):
     def _confstring(self):
         self.log.trace()
         confstring = ''
-        names = self.conf.keys()
+        names = list(self.conf.keys())
         names.sort()
         for name in names:
             if name.lower() == 'configparser':
@@ -345,7 +345,7 @@ class ForkingBase(object):
         self.log.trace('handler called for signal %s' % sig)
         try:
             pid, r = os.wait()
-        except OSError, o:
+        except OSError as o:
             # No children on SIGCHLD.  Can't happen?
             self.log.warning('handler called, but no children (%s)' % o)
             return
